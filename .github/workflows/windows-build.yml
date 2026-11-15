@@ -19,20 +19,29 @@ jobs:
     - name: Setup CMake
       uses: lukka/get-cmake@latest
 
-    # Volitelné, ale jisté: Stažení a rozbalení Boostu, pokud ho dep/boost neobsahuje
+    # Spolehlivé stažení Boostu z oficiálního GitHub zrcadla namísto SourceForge
     - name: Download and Setup Boost
       shell: powershell
       run: |
         $boostVersion = "1.84.0"
         $boostVersionUnderscore = $boostVersion -replace '\.', '_'
-        $boostUrl = "https://sourceforge.net/projects/boost/files/boost/$boostVersion/boost_$boostVersionUnderscore.zip/download"
+        $url = "https://github.com/boostorg/boost/releases/download/boost-$boostVersion/boost-$boostVersion.tar.gz"
         
-        Write-Host "Stahuji Boost $boostVersion..."
-        Invoke-WebRequest -Uri $boostUrl -OutFile "boost.zip"
+        Write-Host "Stahuji Boost $boostVersion z GitHubu..."
+        Invoke-WebRequest -Uri "https://archives.boost.io/release/$boostVersion/source/boost_$boostVersionUnderscore.zip" -OutFile "boost.zip"
         
-        Write-Host "Rozbaluji Boost..."
-        Expand-Archive -Path "boost.zip" -DestinationPath "C:\boost"
-        Move-Item "C:\boost\boost_$boostVersionUnderscore" "C:\boost\boost"
+        Write-Host "Ověřuji velikost souboru..."
+        $fileSize = (Get-Item "boost.zip").Length
+        if ($fileSize -lt 1000000) {
+            Write-Error "Stažený soubor je příliš malý, pravděpodobně jde o chybu stahování."
+            exit 1
+        }
+        
+        Write-Host "Rozbaluji Boost (může to chvíli trvat)..."
+        # Použití .NET třídy pro rozbalení, která je odolnější vůči chybám v modulu Archive
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::ExtractToDirectory("$PWD\boost.zip", "C:\boost")
+        Rename-Item "C:\boost\boost_$boostVersionUnderscore" "C:\boost\boost"
 
     - name: Configure CMake
       shell: cmd
