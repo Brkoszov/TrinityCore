@@ -43,11 +43,9 @@ jobs:
         cmake .. -G "Visual Studio 17 2022" -A x64 ^
           -DTOOLS=ON ^
           -DSCRIPTS=dynamic ^
-          -DWITH_WARNINGS_AS_ERRORS=OFF ^
           -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ^
           -DVCPKG_TARGET_TRIPLET=x64-windows-static-md ^
-          -DMYSQL_INCLUDE_DIR="C:/Program Files/MySQL/MySQL Server 8.0/include" ^
-          -DMYSQL_LIBRARY="C:/Program Files/MySQL/MySQL Server 8.0/lib/libmysql.lib"
+          -DMYSQL_ROOT_DIR="C:/Program Files/MySQL/MySQL Server 8.4"
 
     - name: Build Solution
       shell: cmd
@@ -57,7 +55,7 @@ jobs:
     - name: Copy MySQL runtime DLL
       shell: powershell
       run: |
-        Copy-Item "C:\Program Files\MySQL\MySQL Server 8.0\lib\libmysql.dll" "build\bin\Release\" -ErrorAction SilentlyContinue
+        Copy-Item "C:\Program Files\MySQL\MySQL Server 8.4\lib\libmysql.dll" "build\bin\Release\" -ErrorAction SilentlyContinue
 
     - name: Upload Binaries
       uses: actions/upload-artifact@v4
