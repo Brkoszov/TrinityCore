@@ -1,18 +1,18 @@
 name: Windows Build
 
+# Změna: Spouštění je povolené pouze ručně (workflow_dispatch)
 on:
-  push:
-    branches: [ "master", "main" ]
-  pull_request:
-    branches: [ "master", "main" ]
+  workflow_dispatch:
 
 jobs:
   build-windows:
-    runs-on: windows-2022 # Odpovídá Windows prostředí na AppVeyoru
+    runs-on: windows-2022
 
     steps:
-    - name: Checkout repository
+    - name: Checkout repository with submodules
       uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@v2
@@ -20,8 +20,6 @@ jobs:
     - name: Setup CMake
       uses: lukka/get-cmake@latest
 
-    # 1. Krok: Vytvoření buildovacího adresáře a konfigurace přes CMake
-    # Upravte parametry -D podle toho, jaké závislosti (Boost, OpenSSL) máte uložené či dostupné
     - name: Configure CMake
       shell: cmd
       run: |
@@ -29,13 +27,11 @@ jobs:
         cd build
         cmake .. -G "Visual Studio 17 2022" -A x64 -DTOOLS=ON -DSCRIPTS=dynamic -DWITH_WARNINGS_AS_ERRORS=ON
 
-    # 2. Krok: Samotná kompilace projektu
     - name: Build Solution
       shell: cmd
       run: |
         cmake --build build --config Release --parallel 4
 
-    # 3. Krok (Volitelně): Nahrání výsledných binárek jako artefaktu
     - name: Upload Binaries
       uses: actions/upload-artifact@v4
       with:
