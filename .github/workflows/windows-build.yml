@@ -3,6 +3,10 @@ name: Windows Build
 on:
   workflow_dispatch:
 
+env:
+  VCPKG_DEFAULT_TRIPLET: x64-windows-static-md
+  VCPKG_DEFAULT_BINARY_CACHE: C:\vcpkg_cache
+
 jobs:
   build-windows:
     runs-on: windows-2022
@@ -13,38 +17,47 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Add MSBuild to PATH
-      uses: microsoft/setup-msbuild@v2
+    - name: Cache vcpkg binaries
+      uses: actions/cache@v4
+      with:
+        path: C:\vcpkg_cache
+        key: vcpkg-boost-openssl-${{ runner.os }}-v1
 
-    - name: Setup CMake
-      uses: lukka/get-cmake@latest
-
-    # Volitelné, ale jisté: Stažení a rozbalení Boostu, pokud ho dep/boost neobsahuje
-    - name: Download and Setup Boost
+    - name: Install dependencies via vcpkg
       shell: powershell
       run: |
-        $boostVersion = "1.84.0"
-        $boostVersionUnderscore = $boostVersion -replace '\.', '_'
-        $boostUrl = "https://sourceforge.net/projects/boost/files/boost/$boostVersion/boost_$boostVersionUnderscore.zip/download"
-        
-        Write-Host "Stahuji Boost $boostVersion..."
-        Invoke-WebRequest -Uri $boostUrl -OutFile "boost.zip"
-        
-        Write-Host "Rozbaluji Boost..."
-        Expand-Archive -Path "boost.zip" -DestinationPath "C:\boost"
-        Move-Item "C:\boost\boost_$boostVersionUnderscore" "C:\boost\boost"
+        New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
+        vcpkg install `
+          boost-system boost-filesystem boost-program-options boost-iostreams `
+          boost-regex boost-thread boost-chrono boost-locale boost-date-time `
+          boost-asio boost-beast boost-container boost-property-tree `
+          boost-multi-index boost-heap boost-stacktrace boost-variant `
+          openssl `
+          --triplet x64-windows-static-md
 
     - name: Configure CMake
       shell: cmd
       run: |
         mkdir build
         cd build
-        cmake .. -G "Visual Studio 17 2022" -A x64 -DTOOLS=ON -DSCRIPTS=dynamic -DWITH_WARNINGS_AS_ERRORS=ON -DBOOST_ROOT=C:/boost/boost
+        cmake .. -G "Visual Studio 17 2022" -A x64 ^
+          -DTOOLS=ON ^
+          -DSCRIPTS=dynamic ^
+          -DWITH_WARNINGS_AS_ERRORS=OFF ^
+          -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ^
+          -DVCPKG_TARGET_TRIPLET=x64-windows-static-md ^
+          -DMYSQL_INCLUDE_DIR="C:/Program Files/MySQL/MySQL Server 8.0/include" ^
+          -DMYSQL_LIBRARY="C:/Program Files/MySQL/MySQL Server 8.0/lib/libmysql.lib"
 
     - name: Build Solution
       shell: cmd
       run: |
         cmake --build build --config Release --parallel 4
+
+    - name: Copy MySQL runtime DLL
+      shell: powershell
+      run: |
+        Copy-Item "C:\Program Files\MySQL\MySQL Server 8.0\lib\libmysql.dll" "build\bin\Release\" -ErrorAction SilentlyContinue
 
     - name: Upload Binaries
       uses: actions/upload-artifact@v4
