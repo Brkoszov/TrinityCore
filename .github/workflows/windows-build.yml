@@ -1,6 +1,5 @@
 name: Windows Build
 
-# Změna: Spouštění je povolené pouze ručně (workflow_dispatch)
 on:
   workflow_dispatch:
 
@@ -20,12 +19,27 @@ jobs:
     - name: Setup CMake
       uses: lukka/get-cmake@latest
 
+    # Volitelné, ale jisté: Stažení a rozbalení Boostu, pokud ho dep/boost neobsahuje
+    - name: Download and Setup Boost
+      shell: powershell
+      run: |
+        $boostVersion = "1.84.0"
+        $boostVersionUnderscore = $boostVersion -replace '\.', '_'
+        $boostUrl = "https://sourceforge.net/projects/boost/files/boost/$boostVersion/boost_$boostVersionUnderscore.zip/download"
+        
+        Write-Host "Stahuji Boost $boostVersion..."
+        Invoke-WebRequest -Uri $boostUrl -OutFile "boost.zip"
+        
+        Write-Host "Rozbaluji Boost..."
+        Expand-Archive -Path "boost.zip" -DestinationPath "C:\boost"
+        Move-Item "C:\boost\boost_$boostVersionUnderscore" "C:\boost\boost"
+
     - name: Configure CMake
       shell: cmd
       run: |
         mkdir build
         cd build
-        cmake .. -G "Visual Studio 17 2022" -A x64 -DTOOLS=ON -DSCRIPTS=dynamic -DWITH_WARNINGS_AS_ERRORS=ON
+        cmake .. -G "Visual Studio 17 2022" -A x64 -DTOOLS=ON -DSCRIPTS=dynamic -DWITH_WARNINGS_AS_ERRORS=ON -DBOOST_ROOT=C:/boost/boost
 
     - name: Build Solution
       shell: cmd
